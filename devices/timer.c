@@ -98,7 +98,7 @@ timer_sleep (int64_t ticks)
   sema_init(&semElem->semaphore, 0);
   struct thread *t = running_thread();
   t->stack -= sizeof ticks;
-  *(int64_t)t->stack =
+  *(int64_t)t->stack = ticks
   sema_down(&semElem->semaphore);
 
 

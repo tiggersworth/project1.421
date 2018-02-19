@@ -20,6 +20,9 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+/* List of sleeping processes */
+static struct list sleep_sem_list
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -89,11 +92,21 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  struct semaphore_elem *semElem;
+  semElem = malloc(sizeof *semElem);
+  list_push_back(&sleep_sem_list, &semElem->elem);
+  sema_init(&semElem->semaphore, 0);
+  struct thread *t = running_thread();
+  t->stack -= sizeof ticks;
+  *(int64_t)t->stack =
+  sema_down(&semElem->semaphore);
+
+
+  /*int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
   while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+    thread_yield ();*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

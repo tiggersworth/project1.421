@@ -5,8 +5,10 @@
 #include <stdio.h>
 #include "devices/pit.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include <list.h>
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -40,6 +42,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleep_sem_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -75,7 +78,7 @@ timer_ticks (void)
 {
   enum intr_level old_level = intr_disable ();
   int64_t t = ticks;
-  intr_set_level (old_level);
+  intr_set_level (old_level);c
   return t;
 }
 
@@ -91,14 +94,14 @@ timer_elapsed (int64_t then)
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
-{
+{ 
   struct semaphore_elem *semElem;
   semElem = malloc(sizeof *semElem);
   list_push_back(&sleep_sem_list, &semElem->elem);
   sema_init(&semElem->semaphore, 0);
   struct thread *t = running_thread();
   t->stack -= sizeof ticks;
-  *(int64_t)t->stack = ticks
+  *(int64_t)t->stack = ticks;
   sema_down(&semElem->semaphore);
 
 
@@ -178,12 +181,28 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
+
 /* Timer interrupt handler. */
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  if (!list_empty(&sleep_sem_list))
+  {
+    struct list_elem *position;
+    struct thread *t;
+    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list); pos = list_next(pos))
+    {
+      struct semaphore_elem* s = list_entry(position, struct semaphore_elem, elem);
+      t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
+      *(int64_t)t->stack -= 1;
+      if(*(int64_t)t->stack == 0)
+      {
+        sema_up(s->semaphore);
+        //TODO: remove semaphore elem from list and deallocate
+      }
+    }
+  }
   thread_tick ();
 }
 

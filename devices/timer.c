@@ -191,15 +191,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
   {
     struct list_elem *position;
     struct thread *t;
-    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list); pos = list_next(pos))
+    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list);)
     {
       struct semaphore_elem* s = list_entry(position, struct semaphore_elem, elem);
       t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
       *(int64_t)t->stack -= 1;
+      pos = list_next(pos);
       if(*(int64_t)t->stack == 0)
       {
         sema_up(s->semaphore);
-        //TODO: remove semaphore elem from list and deallocate
+        list_remove(s->elem);
+        t->stack += sizeof(int64_t);
+        free(s);
       }
     }
   }

@@ -95,15 +95,17 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 { 
-  printf("timer_sleep test\n");
-  struct semaphore_elem *semElem;
-  semElem = malloc(sizeof *semElem);
-  list_push_back(&sleep_sem_list, &semElem->elem);
-  sema_init(&semElem->semaphore, 0);
-  struct thread *t = thread_current();
-  t->stack -= sizeof ticks;
-  *(int64_t*)(t->stack) = ticks;
-  sema_down(&semElem->semaphore);
+  if(ticks > 0)
+  {
+    struct semaphore_elem *semElem;
+    semElem = malloc(sizeof *semElem);
+    list_push_back(&sleep_sem_list, &semElem->elem);
+    sema_init(&semElem->semaphore, 0);
+    struct thread *t = thread_current();
+    t->sleep_time = ticks;
+    sema_down(&semElem->semaphore);
+    free(semElem);
+  }
 
 
 
@@ -188,7 +190,7 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  ticks++;
+  
   if (!list_empty(&sleep_sem_list))
   {
     struct list_elem *pos;
@@ -197,17 +199,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
     {
       struct semaphore_elem* s = list_entry(pos, struct semaphore_elem, elem);
       t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
-      *(int64_t *)(t->stack) -= 1;
+      (t->sleep_time) -= 1;
       pos = list_next(pos);
-      if(*(int64_t *)t->stack == 0)
+      if(t->sleep_time == 0)
       {
         sema_up(&s->semaphore);
         list_remove(&s->elem);
-        t->stack += sizeof(int64_t);
-        free(s);
       }
     }
   }
+  ticks++;
   thread_tick ();
 }
 

@@ -99,6 +99,7 @@ timer_sleep (int64_t ticks)
   {
     struct semaphore_elem *semElem;
     semElem = malloc(sizeof *semElem);
+    //TODO: lock list before use
     list_push_back(&sleep_sem_list, &semElem->elem);
     sema_init(&semElem->semaphore, 0);
     struct thread *t = thread_current();
@@ -108,12 +109,6 @@ timer_sleep (int64_t ticks)
   }
 
 
-
-  /*int64_t start = timer_ticks ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be

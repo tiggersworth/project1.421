@@ -206,7 +206,11 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  
+
+  if (t-> priority > thread_current() -> priority)
+  {
+    thread_yield();
+  }
   //TODO: make it so created process preempts running thread
   return tid;
 }
@@ -355,10 +359,10 @@ thread_get_priority (void)
 
 /*Function used to sort threads by priority in a list */
 bool 
-thread_compare_priority(const struct list_elem *a, const struct list_elem *b, int *a_priority)
+thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority)
 {
   struct thread *t = list_entry(b, struct thread, elem);
-  return (*a_priority < t->priority);
+  return (*(int*)a_priority < t->priority);
 }
 
 /* Sets the current thread's nice value to NICE. */

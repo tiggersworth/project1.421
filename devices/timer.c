@@ -98,9 +98,10 @@ timer_sleep (int64_t ticks)
   if(ticks > 0)
   {
     struct semaphore_elem *semElem;
+    //TODO: lock here
     semElem = malloc(sizeof *semElem);
-    //TODO: lock list before use
     list_push_back(&sleep_sem_list, &semElem->elem);
+    //Unlock here
     sema_init(&semElem->semaphore, 0);
     struct thread *t = thread_current();
     t->sleep_time = ticks;

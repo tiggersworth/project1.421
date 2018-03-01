@@ -134,6 +134,12 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  if (!list_empty (&ready_list))
+  {
+    struct thread *priority_thread = list_entry (list_back (&ready_list), struct thread, elem);
+    if(t->priority < priority_thread->priority)
+      intr_yield_on_return();
+  }
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -200,7 +206,8 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  
+  //TODO: make it so created process preempts running thread
   return tid;
 }
 

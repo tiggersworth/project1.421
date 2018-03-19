@@ -25,6 +25,9 @@ static int64_t ticks;
 /* List of sleeping processes */
 static struct list sleep_sem_list;
 
+/*Lock for accessing sleep_sem_list */
+static struct lock sleep_lock;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -98,10 +101,10 @@ timer_sleep (int64_t ticks)
   if(ticks > 0)
   {
     struct semaphore_elem *semElem;
-    //TODO: lock here
+    lock_acquire (&sleep_lock);
     semElem = malloc(sizeof *semElem);
     list_push_back(&sleep_sem_list, &semElem->elem);
-    //Unlock here
+    lock_release (&sleep_lock);
     sema_init(&semElem->semaphore, 0);
     struct thread *t = thread_current();
     t->sleep_time = ticks;
@@ -191,6 +194,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   {
     struct list_elem *pos;
     struct thread *t;
+    //TODO: SAME lock here
     for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list);)
     {
       struct semaphore_elem* s = list_entry(pos, struct semaphore_elem, elem);
@@ -203,6 +207,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
         list_remove(&s->elem);
       }
     }
+    //Unlock
   }
   ticks++;
   thread_tick ();

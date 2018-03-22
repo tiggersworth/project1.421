@@ -28,6 +28,7 @@ static struct list sleep_sem_list;
 /*Lock for accessing sleep_sem_list */
 static struct lock sleep_lock;
 
+static struct semaphore sleep_semaphore;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -46,6 +47,8 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&sleep_sem_list);
+  lock_init(&sleep_lock);
+  sema_init(&sleep_semaphore, 1);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -101,14 +104,19 @@ timer_sleep (int64_t ticks)
   if(ticks > 0)
   {
     struct semaphore_elem *semElem;
-    lock_acquire (&sleep_lock);
+    //lock_acquire (&sleep_lock);
+    sema_down(&sleep_semaphore);
     semElem = malloc(sizeof *semElem);
     list_push_back(&sleep_sem_list, &semElem->elem);
-    lock_release (&sleep_lock);
     sema_init(&semElem->semaphore, 0);
     struct thread *t = thread_current();
     t->sleep_time = ticks;
+    //printf(t->name);
+    //printf(" in lock\n");
+    //lock_release (&sleep_lock); 
+    sema_up(&sleep_semaphore);
     sema_down(&semElem->semaphore);
+    //printf(t->name);
     free(semElem);
   }
 
@@ -189,25 +197,28 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  
+  //Sleep() implemntation
   if (!list_empty(&sleep_sem_list))
   {
     struct list_elem *pos;
     struct thread *t;
-    //TODO: SAME lock here
-    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list);)
+    enum intr_level old_level = intr_disable();
+    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list);pos = list_next(pos))
     {
       struct semaphore_elem* s = list_entry(pos, struct semaphore_elem, elem);
-      t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
-      (t->sleep_time) -= 1;
-      pos = list_next(pos);
-      if(t->sleep_time == 0)
+      if (!list_empty(&s->semaphore.waiters))
       {
-        sema_up(&s->semaphore);
-        list_remove(&s->elem);
+        t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
+        (t->sleep_time) -= 1;
+        if(t->sleep_time == 0)
+        {
+          sema_up_no_preempt(&s->semaphore);
+          list_remove(&s->elem);
+        }
       }
+      
     }
-    //Unlock
+    intr_set_level(old_level);
   }
   ticks++;
   thread_tick ();

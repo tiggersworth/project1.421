@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -200,10 +199,8 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
   /* Add to run queue. */
   thread_unblock (t);
-  printf(t->priority);
   if (t->priority > thread_current()->priority)
   {
-    printf("more testings\n");
     thread_yield();
   }
   //TODO: make it so created process preempts running thread
@@ -243,9 +240,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //TODO: List lock
   list_insert_ordered (&ready_list, &t->elem, thread_compare_priority, &t->priority);
-  //TODO: release
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -345,23 +340,90 @@ void
 thread_set_priority (int new_priority) 
 {
 
-  thread_current ()->priority = new_priority;
+  thread_current()->original_priority = new_priority;
+  if (new_priority > thread_current()->priority && thread_current()->donation)
+    thread_current()->priority = new_priority;
+  else if(!thread_current()->donation)
+    thread_current()->priority = new_priority;
   thread_yield();
+}
+
+/* Donates priority and trickles it down */
+void 
+thread_donate_priority(struct thread *t, struct lock *lock)   //Donates the priority and trickles it down
+                                                              //Only 1 thread accesses it at a time
+{
+  if(lock->priority > t->original_priority){   
+    t->donation = true;
+    if(lock->added == true){
+      list_remove(&lock->elem);
+    }
+    list_push_back(&t->donation_list, &lock->elem);
+    lock->added = true;
+    if(lock->priority > t->priority) 
+      t->priority = lock->priority;
+    if (t->blocker != NULL){
+      thread_donate_priority(t->blocker,lock);
+    }
+  }
+}
+
+void
+thread_release_donation(struct thread *t, struct lock *lock){
+  if(lock->added == true){
+    list_remove(&lock->elem);   //lock should be in list
+    lock->added = false;
+    if (!list_empty(&t->donation_list)){
+      struct lock *new_lock = list_entry(list_max(&t->donation_list, thread_compare_priority_lock, NULL), struct lock, elem);
+      thread_donate_priority(t, new_lock);
+    }
+    else {
+      t->donation = false;
+      t->priority = t->original_priority;
+    }
+  }
+    
+  /*TODO remove semaphore from list of donors (s->added = false)
+  if list is not empty get highest priority sema and run donate priority on that 
+  if list is empty return to original priority
+  run donate priority on new holder of removed semaphore*/
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  if (thread_current()->priority <= thread_current()->original_priority)
+    return thread_current()->original_priority;
+  return thread_current()->priority;
 }
 
 /*Function used to sort threads by priority in a list */
 bool 
-thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority)
+thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority) //given a, b is iterated
 {
-  struct thread *t = list_entry(b, struct thread, elem);
+  struct thread *ta = list_entry(a, struct thread, elem);
+  struct thread *tb = list_entry(b, struct thread, elem);
+  return (ta->priority < tb->priority);
+}
+
+/*Function used to sort thread by priority in condvar */
+bool 
+thread_compare_priority_condvar(const struct list_elem *a, const struct list_elem *b, void *a_priority) //given a, b is iterated
+{
+  struct semaphore_elem *s = list_entry (b, struct semaphore_elem, elem);
+  struct thread *t = list_entry (list_back (&s->semaphore.waiters),
+                                struct thread, elem);
   return (*(int*)a_priority < t->priority);
+}
+
+/*Some day I'll have only one priority comparison function */
+bool 
+thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *b, void *aux) 
+{
+  struct lock *la = list_entry(a, struct lock, elem);
+  struct lock *lb = list_entry(b, struct lock, elem);
+  return (la->priority < lb->priority);
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -479,7 +541,10 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
+  t->donation = false;
   t->magic = THREAD_MAGIC;
+  list_init(&t->donation_list);
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -506,10 +571,14 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
-  if (list_empty (&ready_list))
+  if (list_empty (&ready_list)){
     return idle_thread;
-  else
-    return list_entry (list_pop_back (&ready_list), struct thread, elem);
+  }
+  else{
+    struct thread *t = list_entry (list_max(&ready_list, thread_compare_priority, NULL), struct thread, elem);
+    list_remove (list_max(&ready_list, thread_compare_priority, NULL));
+    return t;
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page

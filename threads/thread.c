@@ -431,8 +431,8 @@ thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *
 bool 
 thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
-  struct thread *ta = list_entry(a, struct thread, elem);
-  struct thread *tb = list_entry(b, struct thread, elem);
+  struct thread *ta = list_entry(a, struct thread, sleep_elem);
+  struct thread *tb = list_entry(b, struct thread, sleep_elem);
   return (ta->sleep_time < tb->sleep_time);
 }
 
@@ -552,7 +552,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->original_priority = priority;
-  sema_init(&t->sleeper);
+  sema_init(&t->sleeper, 0);
   t->donation = false;
   t->magic = THREAD_MAGIC;
   list_init(&t->donation_list);

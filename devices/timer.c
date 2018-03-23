@@ -45,7 +45,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleep_sem_list);
+  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -104,10 +104,9 @@ timer_sleep (int64_t sleep_ticks)
 
     struct thread *t = thread_current();
     t->sleep_time = sleep_ticks + timer_ticks();
-    list_insert_ordered(&sleep_list, t->sleep_elem, thread_compare_sleep, NULL);
+    list_insert_ordered(&sleep_list, &t->sleep_elem, thread_compare_sleep, NULL);
 
-    sema_down(&t->sleeper)
-    ;
+    sema_down(&t->sleeper);
 
   }
 
@@ -191,12 +190,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   //Sleep() implemntation
   enum intr_level old_level = intr_disable();
-  if (!list_empty(&sleep_semaphore.waiters))
+  if (!list_empty(&sleep_list))
   {
-    struct thread *t = list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem);
-    ASSERT (t->sleep_time >= ticks);
-    while (!list_empty(&sleep_semaphore.waiters) && list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
-      sema_up(&sleep_semaphore);
+
+    struct thread *t = list_entry(list_front(&sleep_list), struct thread, sleep_elem);
+    while (!list_empty(&sleep_list)){
+      if (t->sleep_time == ticks){
+        sema_up(&t->sleeper);
+        t = list_entry(list_remove(&t->sleep_elem), struct thread, sleep_elem); 
+      }
+      else
+        break; 
+
     }   
   }
   intr_set_level(old_level);

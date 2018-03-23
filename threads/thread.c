@@ -201,11 +201,12 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
   /* Add to run queue. */
   thread_unblock (t);
-  //if (t->priority > thread_current()->priority)
-  //{
-  //  thread_yield();
-  //}
-  //TODO: make it so created process preempts running thread
+  //PRIORITY SCHEDULER: Thread preemption on creation
+  if (t->priority > thread_current()->priority)
+  {
+    thread_yield();
+  }
+
   return tid;
 }
 
@@ -406,7 +407,7 @@ thread_compare_priority(const struct list_elem *a, const struct list_elem *b, vo
 {
   struct thread *ta = list_entry(a, struct thread, elem);
   struct thread *tb = list_entry(b, struct thread, elem);
-  return (ta->priority <= tb->priority);
+  return (ta->priority < tb->priority);
 }
 
 /*Function used to sort thread by priority in condvar */
@@ -416,7 +417,7 @@ thread_compare_priority_condvar(const struct list_elem *a, const struct list_ele
   struct semaphore_elem *s = list_entry (b, struct semaphore_elem, elem);
   struct thread *t = list_entry (list_back (&s->semaphore.waiters),
                                 struct thread, elem);
-  return (*(int*)a_priority <= t->priority);
+  return (*(int*)a_priority < t->priority);
 }
 
 /*Some day I'll have only one priority comparison function */
@@ -425,7 +426,7 @@ thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *
 {
   struct lock *la = list_entry(a, struct lock, elem);
   struct lock *lb = list_entry(b, struct lock, elem);
-  return (la->priority <= lb->priority);
+  return (la->priority < lb->priority);
 }
 
 bool 

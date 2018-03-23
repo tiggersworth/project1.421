@@ -193,9 +193,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   //Sleep() implemntation
   enum intr_level old_level = intr_disable();
-  while (!list_empty(&sleep_semaphore.waiters))
+  if (!list_empty(&sleep_semaphore.waiters))
   {
-    if (list_entry(list_back(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
+    while (list_entry(list_back(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
       sema_up(&sleep_semaphore);
     }   
   }

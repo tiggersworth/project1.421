@@ -23,7 +23,6 @@ void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
-void sema_up_no_preempt (struct semaphore *sema); /* Used to call sema up during interrupt handler */
 
 /* Lock. */
 struct lock 

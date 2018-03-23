@@ -135,7 +135,7 @@ thread_tick (void)
 
   if (!list_empty (&ready_list))
   {
-    struct thread *priority_thread = list_entry (list_back (&ready_list), struct thread, elem);
+    struct thread *priority_thread = list_entry (list_max (&ready_list, thread_compare_priority, NULL), struct thread, elem);
     if(t->priority < priority_thread->priority)
       intr_yield_on_return();
   }
@@ -220,6 +220,7 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
+  list_remove(&thread_current()-> elem); //Remove thread from ready list
   schedule ();
 }
 
@@ -404,7 +405,7 @@ thread_compare_priority(const struct list_elem *a, const struct list_elem *b, vo
 {
   struct thread *ta = list_entry(a, struct thread, elem);
   struct thread *tb = list_entry(b, struct thread, elem);
-  return (ta->priority < tb->priority);
+  return (ta->priority <= tb->priority);
 }
 
 /*Function used to sort thread by priority in condvar */
@@ -414,7 +415,7 @@ thread_compare_priority_condvar(const struct list_elem *a, const struct list_ele
   struct semaphore_elem *s = list_entry (b, struct semaphore_elem, elem);
   struct thread *t = list_entry (list_back (&s->semaphore.waiters),
                                 struct thread, elem);
-  return (*(int*)a_priority < t->priority);
+  return (*(int*)a_priority <= t->priority);
 }
 
 /*Some day I'll have only one priority comparison function */
@@ -423,7 +424,15 @@ thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *
 {
   struct lock *la = list_entry(a, struct lock, elem);
   struct lock *lb = list_entry(b, struct lock, elem);
-  return (la->priority < lb->priority);
+  return (la->priority <= lb->priority);
+}
+
+bool 
+thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  struct thread *ta = list_entry(a, struct thread, elem);
+  struct thread *tb = list_entry(b, struct thread, elem);
+  return (ta->sleep_time < tb->sleep_time);
 }
 
 /* Sets the current thread's nice value to NICE. */

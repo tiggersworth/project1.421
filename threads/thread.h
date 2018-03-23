@@ -146,6 +146,7 @@ int thread_get_load_avg (void);
 bool thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority);
 bool thread_compare_priority_condvar(const struct list_elem *a, const struct list_elem *b, void *a_priority);
 bool thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 void thread_donate_priority(struct thread*, struct lock*);
 void thread_release_donation(struct thread*, struct lock*);

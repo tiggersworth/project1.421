@@ -8,7 +8,7 @@
 #include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
-#include <list.h>
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -48,7 +48,8 @@ timer_init (void)
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&sleep_sem_list);
   lock_init(&sleep_lock);
-  sema_init(&sleep_semaphore, 1);
+  sema_init(&sleep_semaphore, 0);
+  sleep_semaphore.sleep = true;
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -103,21 +104,13 @@ timer_sleep (int64_t ticks)
 { 
   if(ticks > 0)
   {
-    struct semaphore_elem *semElem;
     //lock_acquire (&sleep_lock);
-    sema_down(&sleep_semaphore);
-    semElem = malloc(sizeof *semElem);
-    list_push_back(&sleep_sem_list, &semElem->elem);
-    sema_init(&semElem->semaphore, 0);
     struct thread *t = thread_current();
-    t->sleep_time = ticks;
+    t->sleep_time = ticks + timer_ticks();
     //printf(t->name);
-    //printf(" in lock\n");
     //lock_release (&sleep_lock); 
-    sema_up(&sleep_semaphore);
-    sema_down(&semElem->semaphore);
-    //printf(t->name);
-    free(semElem);
+    sema_down(&sleep_semaphore);
+    printf(t->name);
   }
 
 
@@ -197,30 +190,17 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
-  //Sleep() implemntation
-  if (!list_empty(&sleep_sem_list))
-  {
-    struct list_elem *pos;
-    struct thread *t;
-    enum intr_level old_level = intr_disable();
-    for( pos = list_begin (&sleep_sem_list); pos != list_end(&sleep_sem_list);pos = list_next(pos))
-    {
-      struct semaphore_elem* s = list_entry(pos, struct semaphore_elem, elem);
-      if (!list_empty(&s->semaphore.waiters))
-      {
-        t = list_entry(list_front(&s->semaphore.waiters), struct thread, elem);
-        (t->sleep_time) -= 1;
-        if(t->sleep_time == 0)
-        {
-          sema_up_no_preempt(&s->semaphore);
-          list_remove(&s->elem);
-        }
-      }
-      
-    }
-    intr_set_level(old_level);
-  }
   ticks++;
+  //Sleep() implemntation
+  enum intr_level old_level = intr_disable();
+  while (!list_empty(&sleep_semaphore.waiters))
+  {
+    if (list_entry(list_back(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
+      sema_up(&sleep_semaphore);
+    }   
+  }
+  intr_set_level(old_level);
+  
   thread_tick ();
 }
 

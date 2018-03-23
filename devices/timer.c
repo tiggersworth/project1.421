@@ -25,8 +25,6 @@ static int64_t ticks;
 /* List of sleeping processes */
 static struct list sleep_list;
 
-/*Lock for accessing sleep_sem_list */
-static struct lock sleep_lock;
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */

@@ -104,11 +104,11 @@ timer_sleep (int64_t ticks)
 { 
   if(ticks > 0)
   {
-    //lock_acquire (&sleep_lock);
+    lock_acquire (&sleep_lock);
     struct thread *t = thread_current();
     t->sleep_time = ticks + timer_ticks();
     //printf(t->name);
-    //lock_release (&sleep_lock); 
+    lock_release (&sleep_lock); 
     sema_down(&sleep_semaphore);
     printf(t->name);
   }

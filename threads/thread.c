@@ -220,7 +220,6 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
-  list_remove(&thread_current()-> elem); //Remove thread from ready list
   schedule ();
 }
 

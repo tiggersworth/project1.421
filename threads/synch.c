@@ -126,7 +126,7 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   if (!list_empty (&sema->waiters)) {
     if (sema->sleep == true){
-      struct thread *t = list_entry(list_pop_back(&sema->waiters), struct thread, elem);
+      struct thread *t = list_entry(list_pop_front(&sema->waiters), struct thread, elem);
       thread_unblock(t);
     //  if (t->priority > thread_current()->priority)
     //    yield = true;

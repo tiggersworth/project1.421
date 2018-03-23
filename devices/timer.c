@@ -104,13 +104,13 @@ timer_sleep (int64_t ticks)
 { 
   if(ticks > 0)
   {
-    lock_acquire (&sleep_lock);
+//    lock_acquire (&sleep_lock);
     struct thread *t = thread_current();
     t->sleep_time = ticks + timer_ticks();
     //printf(t->name);
-    lock_release (&sleep_lock); 
+//    lock_release (&sleep_lock); 
     sema_down(&sleep_semaphore);
-    printf(t->name);
+
   }
 
 
@@ -195,7 +195,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
   enum intr_level old_level = intr_disable();
   if (!list_empty(&sleep_semaphore.waiters))
   {
-    while (list_entry(list_back(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
+    struct thread *t = list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem);
+    while (!list_empty(&sleep_semaphore.waiters) && list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
       sema_up(&sleep_semaphore);
     }   
   }

@@ -209,16 +209,16 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  /*sema_down(&lock->donation_sem);
-  lock->priority = thread_current()->priority;
+  sema_down(&lock->donation_sem);
+  /*lock->priority = thread_current()->priority;
   if(lock->holder != NULL){
     thread_current()->blocker = lock->holder;
     thread_donate_priority(lock->holder, lock);     //Donates the priority and trickles it down
   }
-  sema_up(&lock->donation_sem); */
+  */sema_up(&lock->donation_sem); 
   sema_down (&lock->semaphore); //barrier to entry, one at a time please
-  /*sema_down(&lock->donation_sem); 
-  lock->holder = thread_current();
+  sema_down(&lock->donation_sem); 
+  /*lock->holder = thread_current();
   if(!list_empty(&lock->semaphore.waiters)){
     for( struct list_elem *pos = list_begin (&lock->semaphore.waiters); pos != list_end(&lock->semaphore.waiters);pos = list_next(pos)){
       struct thread* t = list_entry(pos, struct thread, elem);
@@ -227,7 +227,7 @@ lock_acquire (struct lock *lock)
   }*/
   lock->holder = thread_current();
   //thread_donate_priority(thread_current(), lock); 
-  //sema_up(&lock->donation_sem);
+  sema_up(&lock->donation_sem);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -261,7 +261,7 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  //sema_down(&lock->donation_sem);
+  sema_down(&lock->donation_sem);
   lock->holder = NULL;
   /*if (!list_empty(&lock->semaphore.waiters)){
     for( struct list_elem *pos = list_begin (&lock->semaphore.waiters); pos != list_end(&lock->semaphore.waiters);pos = list_next(pos)){
@@ -269,8 +269,8 @@ lock_release (struct lock *lock)
       t->blocker = NULL;
     }
   }
-  thread_release_donation(thread_current(), lock);
-  sema_up(&lock->donation_sem);*/
+  thread_release_donation(thread_current(), lock);*/
+  sema_up(&lock->donation_sem);
   sema_up (&lock->semaphore);
 }
 

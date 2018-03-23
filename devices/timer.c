@@ -23,12 +23,11 @@
 static int64_t ticks;
 
 /* List of sleeping processes */
-static struct list sleep_sem_list;
+static struct list sleep_list;
 
 /*Lock for accessing sleep_sem_list */
 static struct lock sleep_lock;
 
-static struct semaphore sleep_semaphore;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -47,9 +46,6 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&sleep_sem_list);
-  lock_init(&sleep_lock);
-  sema_init(&sleep_semaphore, 0);
-  sleep_semaphore.sleep = true;
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -100,16 +96,18 @@ timer_elapsed (int64_t then)
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) 
+timer_sleep (int64_t sleep_ticks) 
 { 
-  if(ticks > 0)
+  if(sleep_ticks > 0)
   {
-//    lock_acquire (&sleep_lock);
+    
+
     struct thread *t = thread_current();
-    t->sleep_time = ticks + timer_ticks();
-    //printf(t->name);
-//    lock_release (&sleep_lock); 
-    sema_down(&sleep_semaphore);
+    t->sleep_time = sleep_ticks + timer_ticks();
+    list_insert_ordered(&sleep_list, t->sleep_elem, thread_compare_sleep, NULL);
+
+    sema_down(&t->sleeper)
+    ;
 
   }
 
@@ -196,6 +194,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if (!list_empty(&sleep_semaphore.waiters))
   {
     struct thread *t = list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem);
+    ASSERT (t->sleep_time >= ticks);
     while (!list_empty(&sleep_semaphore.waiters) && list_entry(list_front(&sleep_semaphore.waiters), struct thread, elem)->sleep_time == ticks){
       sema_up(&sleep_semaphore);
     }   

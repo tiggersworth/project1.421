@@ -30,6 +30,8 @@ static struct list all_list;
 /* Idle thread. */
 static struct thread *idle_thread;
 
+
+
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
 
@@ -133,12 +135,12 @@ thread_tick (void)
   else
     kernel_ticks++;
 
-  if (!list_empty (&ready_list))
+  /*if (!list_empty (&ready_list))Checking ready list on every tick probably takes too long
   {
     struct thread *priority_thread = list_entry (list_max (&ready_list, thread_compare_priority, NULL), struct thread, elem);
     if(t->priority < priority_thread->priority)
       intr_yield_on_return();
-  }
+  }*/
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -199,10 +201,10 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
   /* Add to run queue. */
   thread_unblock (t);
-  if (t->priority > thread_current()->priority)
-  {
-    thread_yield();
-  }
+  //if (t->priority > thread_current()->priority)
+  //{
+  //  thread_yield();
+  //}
   //TODO: make it so created process preempts running thread
   return tid;
 }
@@ -550,6 +552,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->original_priority = priority;
+  sema_init(&t->sleeper);
   t->donation = false;
   t->magic = THREAD_MAGIC;
   list_init(&t->donation_list);
@@ -583,9 +586,9 @@ next_thread_to_run (void)
     return idle_thread;
   }
   else{
-    struct thread *t = list_entry (list_max(&ready_list, thread_compare_priority, NULL), struct thread, elem);
-    list_remove (list_max(&ready_list, thread_compare_priority, NULL));
-    return t;
+    //struct thread *t = list_entry (list_max(&ready_list, thread_compare_priority, NULL), struct thread, elem);
+    return list_entry (list_pop_back(&ready_list), struct thread, elem);
+
   }
 }
 

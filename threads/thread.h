@@ -94,8 +94,10 @@ struct thread
     struct list donation_list;          /* List of semaphores donating priority */
     bool donation;
     int64_t sleep_time;          //storing it here for now
+    struct semaphore sleeper;
     struct thread* blocker;       
     /* Shared between thread.c and synch.c. */
+    struct list_elem sleep_elem;
     struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG

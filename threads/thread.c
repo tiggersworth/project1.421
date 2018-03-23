@@ -342,13 +342,17 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-
-  thread_current()->original_priority = new_priority;
-  if (new_priority > thread_current()->priority && thread_current()->donation)
+  if(new_priority != thread_current()->original_priority){
+    thread_current()->original_priority = new_priority;
+    if(!thread_current()->donation){
+      thread_current()->priority = new_priority;
+      thread_yield();
+    }
+  } else if (new_priority > thread_current()->priority){//donation is true is implied
     thread_current()->priority = new_priority;
-  else if(!thread_current()->donation)
-    thread_current()->priority = new_priority;
-  thread_yield();
+    thread_yield();
+  }
+  
 }
 
 /* Donates priority and trickles it down */
@@ -407,7 +411,7 @@ thread_compare_priority(const struct list_elem *a, const struct list_elem *b, vo
 {
   struct thread *ta = list_entry(a, struct thread, elem);
   struct thread *tb = list_entry(b, struct thread, elem);
-  return (ta->priority < tb->priority);
+  return (ta->priority <= tb->priority);
 }
 
 /*Function used to sort thread by priority in condvar */
@@ -417,7 +421,7 @@ thread_compare_priority_condvar(const struct list_elem *a, const struct list_ele
   struct semaphore_elem *s = list_entry (b, struct semaphore_elem, elem);
   struct thread *t = list_entry (list_back (&s->semaphore.waiters),
                                 struct thread, elem);
-  return (*(int*)a_priority < t->priority);
+  return (*(int*)a_priority <= t->priority);
 }
 
 /*Some day I'll have only one priority comparison function */
@@ -426,7 +430,7 @@ thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *
 {
   struct lock *la = list_entry(a, struct lock, elem);
   struct lock *lb = list_entry(b, struct lock, elem);
-  return (la->priority < lb->priority);
+  return (la->priority <= lb->priority);
 }
 
 bool 

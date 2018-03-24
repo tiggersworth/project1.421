@@ -380,13 +380,13 @@ thread_release_donation(struct thread *t, struct lock *lock){
   if(lock->added == true){
     list_remove(&lock->elem);   //lock should be in list
     lock->added = false;
+    t->priority = t->original_priority; //reset priority otherwise the comparison in thread_donate priority if (lock->priority > t->priority) fails
     if (!list_empty(&t->donation_list)){
       struct lock *new_lock = list_entry(list_max(&t->donation_list, thread_compare_priority_lock, NULL), struct lock, elem);
       thread_donate_priority(t, new_lock);
     }
     else {
       t->donation = false;
-      t->priority = t->original_priority;
     }
   }
     

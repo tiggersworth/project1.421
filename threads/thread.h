@@ -93,6 +93,7 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     struct list donation_list;          /* List of semaphores donating priority */
     bool donation;
+    bool sleeper_bool;
     int64_t sleep_time;          //storing it here for now
     struct semaphore sleeper;
     struct thread* blocker;       

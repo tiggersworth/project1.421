@@ -68,8 +68,11 @@ sema_down (struct semaphore *sema)
 
   old_level = intr_disable ();
   while (sema->value == 0) 
-    {
-        list_insert_ordered (&sema->waiters, &thread_current()->elem, thread_compare_priority, NULL);
+    {   struct thread *t = thread_current();
+        if (t->sleeper_bool)
+          list_push_back(&sema->waiters, &t->elem);     //faster insert for timer.c each timer has its own semaphore so no need to order them in the list
+        else
+          list_insert_ordered (&sema->waiters, &thread_current()->elem, thread_compare_priority, NULL);
         thread_block ();      
     }
   sema->value--;
@@ -192,6 +195,7 @@ lock_init (struct lock *lock)
   sema_init (&lock->semaphore, 1);
   sema_init (&lock->donation_sem, 1);
   lock->priority = 0;
+  lock->added = false;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -210,23 +214,25 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   sema_down(&lock->donation_sem);
-  /*lock->priority = thread_current()->priority;
+  
+  if(lock->priority < thread_current()->priority)
+    lock->priority = thread_current()->priority;
   if(lock->holder != NULL){
-    thread_current()->blocker = lock->holder;
+    //thread_current()->blocker = lock->holder;
     thread_donate_priority(lock->holder, lock);     //Donates the priority and trickles it down
   }
-  */sema_up(&lock->donation_sem); 
+  sema_up(&lock->donation_sem); 
   sema_down (&lock->semaphore); //barrier to entry, one at a time please
   sema_down(&lock->donation_sem); 
-  /*lock->holder = thread_current();
-  if(!list_empty(&lock->semaphore.waiters)){
+  lock->holder = thread_current();
+  /*if(!list_empty(&lock->semaphore.waiters)){
     for( struct list_elem *pos = list_begin (&lock->semaphore.waiters); pos != list_end(&lock->semaphore.waiters);pos = list_next(pos)){
       struct thread* t = list_entry(pos, struct thread, elem);
       t->blocker = thread_current();
     }
   }*/
   lock->holder = thread_current();
-  //thread_donate_priority(thread_current(), lock); 
+  thread_donate_priority(thread_current(), lock); 
   sema_up(&lock->donation_sem);
 }
 
@@ -268,8 +274,8 @@ lock_release (struct lock *lock)
       struct thread* t = list_entry(pos, struct thread, elem);
       t->blocker = NULL;
     }
-  }
-  thread_release_donation(thread_current(), lock);*/
+  }*/
+  thread_release_donation(thread_current(), lock);
   sema_up(&lock->donation_sem);
   sema_up (&lock->semaphore);
 }

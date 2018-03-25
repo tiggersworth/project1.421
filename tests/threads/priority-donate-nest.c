@@ -75,7 +75,6 @@ medium_thread_func (void *locks_)
   lock_release (locks->a);
   thread_yield ();
 
-  msg("Medium thread Released lock a");
   lock_release (locks->b);
   thread_yield ();
 

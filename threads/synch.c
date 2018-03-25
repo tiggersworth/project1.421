@@ -235,21 +235,28 @@ lock_acquire (struct lock *lock)
   lock->holder = thread_current();
   thread_donate_priority(thread_current(), lock); 
   sema_up(&lock->donation_sem);*/
-  if (sema_try_down(&lock->semaphore)){
-    lock->holder = thread_current();
-    thread_donate_priority(thread_current(), lock);
-    
+  if(!thread_mlfqs){
+    if (sema_try_down(&lock->semaphore)){
+      lock->holder = thread_current();
+      thread_donate_priority(thread_current(), lock);
+      
+    }
+    else {
+      if (thread_current()->priority > lock->priority)
+        lock->priority = thread_current()->priority;
+      thread_current()->blocker = lock; //switching blocker to be a lock
+      thread_donate_priority(lock->holder, lock);
+      sema_down(&lock->semaphore);
+      lock->holder = thread_current();
+      thread_current()->blocker = NULL;
+      thread_donate_priority(thread_current(), lock);
+    }
   }
-  else {
-    if (thread_current()->priority > lock->priority)
-      lock->priority = thread_current()->priority;
-    thread_current()->blocker = lock; //switching blocker to be a lock
-    thread_donate_priority(lock->holder, lock);
+  else{
     sema_down(&lock->semaphore);
     lock->holder = thread_current();
-    thread_current()->blocker = NULL;
-    thread_donate_priority(thread_current(), lock);
   }
+  
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -295,7 +302,8 @@ lock_release (struct lock *lock)
   sema_up(&lock->donation_sem);
   sema_up (&lock->semaphore);*/
   lock->holder = NULL;
-  thread_release_donation(thread_current(), lock);
+  if(!thread_mlfqs)
+    thread_release_donation(thread_current(), lock);
   sema_up (&lock->semaphore);
 }
 

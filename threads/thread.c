@@ -202,7 +202,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   //PRIORITY SCHEDULER: Thread preemption on creation
-  if (t->priority > thread_current()->priority)
+  if (t->priority > thread_current()->priority && !thread_mlfqs)
   {
     thread_yield();
   }
@@ -342,16 +342,19 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  if(new_priority != thread_current()->original_priority){
-    thread_current()->original_priority = new_priority;
-    if(!thread_current()->donation){
+  if(!thread_mlfqs){
+    if(new_priority != thread_current()->original_priority){
+      thread_current()->original_priority = new_priority;
+      if(!thread_current()->donation){
+        thread_current()->priority = new_priority;
+        thread_yield();
+      }
+    } else if (new_priority > thread_current()->priority){//donation is true is implied
       thread_current()->priority = new_priority;
       thread_yield();
     }
-  } else if (new_priority > thread_current()->priority){//donation is true is implied
-    thread_current()->priority = new_priority;
-    thread_yield();
   }
+  
   
 }
 
@@ -401,9 +404,13 @@ thread_release_donation(struct thread *t, struct lock *lock){
 int
 thread_get_priority (void) 
 {
-  if (thread_current()->priority <= thread_current()->original_priority)
+  if(!thread_mlfqs){
+    if (thread_current()->priority <= thread_current()->original_priority)
     return thread_current()->original_priority;
   return thread_current()->priority;
+  }
+  else
+    return thread_current()->priority;
 }
 
 /*Function used to sort threads by priority in a list */
@@ -556,8 +563,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
-  t->original_priority = priority;
+  if(!thread_mlfqs){
+    t->priority = priority;
+    t->original_priority = priority;
+  }
   sema_init(&t->sleeper, 0);
   t->donation = false;
   t->sleeper_bool = false;

@@ -369,9 +369,9 @@ thread_donate_priority(struct thread *t, struct lock *lock)   //Donates the prio
     lock->added = true;
     if(lock->priority > t->priority) 
       t->priority = lock->priority;
-    //if (t->blocker != NULL){
-    //  thread_donate_priority(t->blocker,lock);
-    //}
+    if (t->blocker != NULL){
+      thread_donate_priority(t->blocker->holder,t->blocker); //changed blocker to a lock
+    }
   }
 }
 
@@ -560,6 +560,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init(&t->sleeper, 0);
   t->donation = false;
   t->sleeper_bool = false;
+  t->blocker = NULL;
   list_init(&t->donation_list);
   t->magic = THREAD_MAGIC;
   old_level = intr_disable ();

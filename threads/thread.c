@@ -370,6 +370,7 @@ thread_donate_priority(struct thread *t, struct lock *lock)   //Donates the prio
     if(lock->priority > t->priority) 
       t->priority = lock->priority;
     if (t->blocker != NULL){
+      t->blocker->priority = lock->priority;
       thread_donate_priority(t->blocker->holder,t->blocker); //changed blocker to a lock
     }
   }

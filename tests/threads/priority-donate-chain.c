@@ -89,7 +89,6 @@ donor_thread_func (void *locks_)
 
   if (locks->first)
     lock_acquire (locks->first);
-
   lock_acquire (locks->second);
   msg ("%s got lock", thread_name ());
 

@@ -10,6 +10,7 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
+#include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -29,6 +30,10 @@ static struct list all_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
+
+static int32_t load_avg;  
+
+static int ready_threads;
 
 
 
@@ -93,6 +98,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  load_avg = 0;
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -145,6 +151,12 @@ thread_tick (void)
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 } 
+
+void
+thread_update_bsd (void)
+{
+  load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), ready_threads));
+}
 
 /* Prints thread statistics. */
 void
@@ -451,17 +463,18 @@ thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void 
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
-  /* Not yet implemented. */
+  /* Not yet finished */
+  thread_current()->niceness = nice;
+  //recalculate priority
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->niceness;
 }
 
 /* Returns 100 times the system load average. */

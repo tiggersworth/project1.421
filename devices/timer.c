@@ -204,6 +204,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }   
   }
   intr_set_level(old_level);
+  if (ticks % TIMER_FREQ == 0) {
+    thread_update_bsd();
+  }
   
   thread_tick ();
 }

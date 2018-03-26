@@ -96,7 +96,8 @@ struct thread
     bool sleeper_bool;
     int64_t sleep_time;          //storing it here for now
     struct semaphore sleeper;
-    struct lock* blocker;       
+    struct lock* blocker;
+    int niceness;                  
     /* Shared between thread.c and synch.c. */
     struct list_elem sleep_elem;
     struct list_elem elem;              /* List element. */
@@ -119,6 +120,7 @@ void thread_init (void);
 void thread_start (void);
 
 void thread_tick (void);
+void thread_update_bsd(void);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);

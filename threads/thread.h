@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -88,9 +89,18 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
+    int original_priority;                /* Current top priority from donation */
     struct list_elem allelem;           /* List element for all threads list. */
-
+    struct list donation_list;          /* List of semaphores donating priority */
+    int nice_value;			/* Between -20 and 20 */
+    int recent_cpu;                     /* Still determining how to handle this */
+    bool donation;
+    bool sleeper_bool;
+    int64_t sleep_time;          //storing it here for now
+    struct semaphore sleeper;
+    struct lock* blocker;       
     /* Shared between thread.c and synch.c. */
+    struct list_elem sleep_elem;
     struct list_elem elem;              /* List element. */
 
 #ifdef USERPROG
@@ -137,5 +147,14 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+bool thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority);
+bool thread_compare_priority_condvar(const struct list_elem *a, const struct list_elem *b, void *a_priority);
+bool thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *b, void *aux);
+bool thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+void thread_donate_priority(struct thread*, struct lock*);
+void thread_release_donation(struct thread*, struct lock*);
+
 
 #endif /* threads/thread.h */

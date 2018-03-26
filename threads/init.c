@@ -98,7 +98,6 @@ main (void)
   palloc_init (user_page_limit);
   malloc_init ();
   paging_init ();
-
   /* Segmentation. */
 #ifdef USERPROG
   tss_init ();
@@ -119,7 +118,6 @@ main (void)
   thread_start ();
   serial_init_queue ();
   timer_calibrate ();
-
 #ifdef FILESYS
   /* Initialize file system. */
   ide_init ();

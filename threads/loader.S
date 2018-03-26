@@ -2,6 +2,7 @@
 
 #### Kernel loader.
 
+#### Do not touch this code.
 #### This code should be stored in the first sector of a hard disk.
 #### When the BIOS runs, it loads this code at physical address
 #### 0x7c00-0x7e00 (512 bytes) and jumps to the beginning of it,

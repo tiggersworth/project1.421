@@ -165,7 +165,10 @@ thread_tick (void)
 void
 thread_update_bsd_sec (void)
 {
-  load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), ready_threads)); //NEED TO CALCULATE READY THREADS
+  if (thread_current() == idle_thread)
+    load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), (list_size(&ready_list))));
+  else
+    load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), (list_size(&ready_list) + 1)));
   struct list_elem *e;
 
   for (e = list_begin (&all_list); e != list_end (&all_list);

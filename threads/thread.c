@@ -31,11 +31,11 @@ static struct list all_list;
 /* Idle thread. */
 static struct thread *idle_thread;
 
-static int32_t load_avg;  
+static int64_t load_avg;  
+
 
 static int ready_threads;
 
-static struct list *bsd_qs[64];
 
 
 
@@ -100,12 +100,16 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  load_avg = 0;
 
 
 
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
+  initial_thread->recent_cpu = 0;   //DEBUG : BSD
+  initial_thread->niceness = 0;
+  initial_thread->priority = PRI_MAX;
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
@@ -122,14 +126,6 @@ thread_start (void)
   thread_create ("idle", PRI_MIN, idle, &idle_started);
   ready_threads = 1; //Accounts for main thread but not for idle.
 
-  /* Initialize queues for mlfqs */
-  if(thread_mlfqs){
-    load_avg = 0;
-    for (i = 0; i < 64; i++){
-      bsd_qs[i] = malloc(sizeof(struct List));
-      list_init(bsd_qs[i]);
-    }
-  }
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -148,29 +144,50 @@ thread_tick (void)
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
+    
 #ifdef USERPROG
   else if (t->pagedir != NULL)
     user_ticks++;
 #endif
-  else
+  else{
     kernel_ticks++;
+    t->recent_cpu = ADDFPINT(t->recent_cpu, 1);    //DEBUG : BSD
+  }
+    
 
-  /*if (!list_empty (&ready_list))Checking ready list on every tick probably takes too long
-  {
-    struct thread *priority_thread = list_entry (list_max (&ready_list, thread_compare_priority, NULL), struct thread, elem);
-    if(t->priority < priority_thread->priority)
-      intr_yield_on_return();
-  }*/
+  
   /* Enforce preemption. */
+
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 } 
 
 void
-thread_update_bsd (void)
+thread_update_bsd_sec (void)
 {
   load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), ready_threads)); //NEED TO CALCULATE READY THREADS
+  struct list_elem *e;
 
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      int64_t coefficient = DIV_FP(2*load_avg, ADDFPINT(2*load_avg, 1));
+      t->recent_cpu = ADDFPINT(MULT_FP(coefficient, t->recent_cpu), t->niceness);
+    }
+
+}
+void
+thread_update_priorities (void)
+{
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      t->priority = FP_TO_INT_ROUNDTOZERO(INT_TO_FP(PRI_MAX) - (t->recent_cpu/4) - (INT_TO_FP(t->niceness*2)));
+    }
+  list_sort(&ready_list, thread_compare_priority2, NULL);
 }
 
 /* Prints thread statistics. */
@@ -229,7 +246,7 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   //PRIORITY SCHEDULER: Thread preemption on creation
-  if (t->priority > thread_current()->priority && !thread_mlfqs)
+  if (t->priority > thread_current()->priority)
   {
     thread_yield();
   }
@@ -249,7 +266,10 @@ thread_block (void)
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
+  if(thread_current() != idle_thread)
+    ready_threads--;
   thread_current ()->status = THREAD_BLOCKED;
+  
   schedule ();
 }
 
@@ -269,17 +289,10 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
-  if (!thread_mlfqs){
     ASSERT (t->status == THREAD_BLOCKED);
     list_insert_ordered (&ready_list, &t->elem, thread_compare_priority, &t->priority);
     t->status = THREAD_READY;
-  } 
-  else {
-    ASSERT (t->status == THREAD_BLOCKED);
-    ready_threads += 1;
-    list_push_back(bsd_qs[t->priority], &t->elem);
-    t->status = THREAD_READY;
-  }
+    ready_threads++;
   intr_set_level (old_level);
   
 }
@@ -458,6 +471,14 @@ thread_compare_priority(const struct list_elem *a, const struct list_elem *b, vo
   return (ta->priority <= tb->priority);
 }
 
+bool //DEBUG : TEMPORARY
+thread_compare_priority2(const struct list_elem *a, const struct list_elem *b, void *a_priority) //given a, b is iterated
+{
+  struct thread *ta = list_entry(a, struct thread, elem);
+  struct thread *tb = list_entry(b, struct thread, elem);
+  return (ta->priority < tb->priority);
+}
+
 /*Function used to sort thread by priority in condvar */
 bool 
 thread_compare_priority_condvar(const struct list_elem *a, const struct list_elem *b, void *a_priority) //given a, b is iterated
@@ -506,7 +527,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return FP_TO_INT_ROUND(100 * load_avg);
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -514,7 +535,7 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return FP_TO_INT_ROUND(100 * thread_current()->recent_cpu);
 }
 /* Idle thread.  Executes when no other thread is ready to run.
 
@@ -604,10 +625,20 @@ init_thread (struct thread *t, const char *name, int priority)
     t->priority = priority;
     t->original_priority = priority;
   }
+  else{
+    if(!(strcmp(name, "main") == 0)){
+      t->recent_cpu = thread_current()->recent_cpu;     //DEBUG : BSD
+      t->niceness = thread_current()->niceness;
+      t->priority = FP_TO_INT_ROUNDTOZERO(INT_TO_FP(PRI_MAX) - (t->recent_cpu/4) - (INT_TO_FP(t->niceness*2)));
+    }
+    
+  }
   sema_init(&t->sleeper, 0);
   t->donation = false;
   t->sleeper_bool = false;
   t->blocker = NULL;
+  
+
   list_init(&t->donation_list);
   t->magic = THREAD_MAGIC;
   old_level = intr_disable ();

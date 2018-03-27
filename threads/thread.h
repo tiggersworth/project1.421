@@ -95,6 +95,7 @@ struct thread
     bool donation;
     bool sleeper_bool;
     int64_t sleep_time;          //storing it here for now
+    int64_t recent_cpu;
     struct semaphore sleeper;
     struct lock* blocker;
     int niceness;                  
@@ -120,7 +121,8 @@ void thread_init (void);
 void thread_start (void);
 
 void thread_tick (void);
-void thread_update_bsd(void);
+void thread_update_bsd_sec(void);
+void thread_update_priorities (void);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
@@ -149,6 +151,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 bool thread_compare_priority(const struct list_elem *a, const struct list_elem *b, void *a_priority);
+bool thread_compare_priority2(const struct list_elem *a, const struct list_elem *b, void *a_priority);
 bool thread_compare_priority_condvar(const struct list_elem *a, const struct list_elem *b, void *a_priority);
 bool thread_compare_priority_lock(const struct list_elem *a, const struct list_elem *b, void *aux);
 bool thread_compare_sleep(const struct list_elem *a, const struct list_elem *b, void *aux);

@@ -204,9 +204,15 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }   
   }
   intr_set_level(old_level);
-  if (ticks % TIMER_FREQ == 0) {
-    thread_update_bsd();
+  if (thread_mlfqs){
+    if (ticks % TIMER_FREQ == 0) {
+      thread_update_bsd_sec();
+    }
+    if (ticks % 4 == 0){
+      thread_update_priorities();
+    }
   }
+  
   
   thread_tick ();
 }

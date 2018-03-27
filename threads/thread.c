@@ -35,6 +35,8 @@ static int32_t load_avg;
 
 static int ready_threads;
 
+static struct list *bsd_qs[64];
+
 
 
 /* Initial thread, the thread running init.c:main(). */
@@ -98,7 +100,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  load_avg = 0;
+
+
+
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -116,6 +120,16 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+  ready_threads = 1; //Accounts for main thread but not for idle.
+
+  /* Initialize queues for mlfqs */
+  if(thread_mlfqs){
+    load_avg = 0;
+    for (i = 0; i < 64; i++){
+      bsd_qs[i] = malloc(sizeof(struct List));
+      list_init(bsd_qs[i]);
+    }
+  }
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -155,7 +169,8 @@ thread_tick (void)
 void
 thread_update_bsd (void)
 {
-  load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), ready_threads));
+  load_avg = ADDFP(MULT_FP(DIV_INT(INT_TO_FP(59), 60), load_avg), MULT_INT(DIV_INT(INT_TO_FP(1), 60), ready_threads)); //NEED TO CALCULATE READY THREADS
+
 }
 
 /* Prints thread statistics. */
@@ -254,10 +269,19 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
-  ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered (&ready_list, &t->elem, thread_compare_priority, &t->priority);
-  t->status = THREAD_READY;
+  if (!thread_mlfqs){
+    ASSERT (t->status == THREAD_BLOCKED);
+    list_insert_ordered (&ready_list, &t->elem, thread_compare_priority, &t->priority);
+    t->status = THREAD_READY;
+  } 
+  else {
+    ASSERT (t->status == THREAD_BLOCKED);
+    ready_threads += 1;
+    list_push_back(bsd_qs[t->priority], &t->elem);
+    t->status = THREAD_READY;
+  }
   intr_set_level (old_level);
+  
 }
 
 /* Returns the name of the running thread. */

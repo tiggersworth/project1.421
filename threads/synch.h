@@ -31,6 +31,7 @@ struct lock
     struct semaphore semaphore; /* Binary semaphore controlling access. */
     int priority;
     bool added;
+    bool condvar;
     struct list_elem elem;
     struct semaphore donation_sem;
   };

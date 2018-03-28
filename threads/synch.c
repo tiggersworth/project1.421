@@ -197,6 +197,7 @@ lock_init (struct lock *lock)
   sema_init (&lock->donation_sem, 1);
   lock->priority = 0;
   lock->added = false;
+  lock->condvar = false;
 }
 
 /* Acquires LOCK, sleeping until it becomes available if
@@ -214,28 +215,8 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  /*sema_down(&lock->donation_sem);
   
-  if(lock->priority < thread_current()->priority)
-    lock->priority = thread_current()->priority;
-  if(lock->holder != NULL){
-    thread_current()->blocker = lock->holder;
-    thread_donate_priority(lock->holder, lock);     //Donates the priority and trickles it down
-  }
-  sema_up(&lock->donation_sem); 
-  sema_down (&lock->semaphore); //barrier to entry, one at a time please
-  sema_down(&lock->donation_sem); 
-  lock->holder = thread_current();
-  if(!list_empty(&lock->semaphore.waiters)){
-    for( struct list_elem *pos = list_begin (&lock->semaphore.waiters); pos != list_end(&lock->semaphore.waiters);pos = list_next(pos)){
-      struct thread* t = list_entry(pos, struct thread, elem);
-      t->blocker = thread_current();
-    }
-  }
-  lock->holder = thread_current();
-  thread_donate_priority(thread_current(), lock); 
-  sema_up(&lock->donation_sem);*/
-  if(!thread_mlfqs){
+  if(!thread_mlfqs && !lock->condvar){
     if (sema_try_down(&lock->semaphore)){
       lock->holder = thread_current();
       thread_donate_priority(thread_current(), lock);
@@ -302,7 +283,7 @@ lock_release (struct lock *lock)
   sema_up(&lock->donation_sem);
   sema_up (&lock->semaphore);*/
   lock->holder = NULL;
-  if(!thread_mlfqs)
+  if(!thread_mlfqs && !lock->condvar)
     thread_release_donation(thread_current(), lock);
   sema_up (&lock->semaphore);
 }
@@ -361,6 +342,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
+  lock->condvar = true;
   list_insert_ordered (&cond->waiters, &waiter.elem, thread_compare_priority_condvar, &thread_current()-> priority);
   lock_release (lock);
   sema_down (&waiter.semaphore);

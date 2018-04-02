@@ -25,6 +25,12 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
+
+/* NEEDS TO BE DONE: process_execute needs to support passing arguments
+   to new processes. Needs to divide the program file name into words at
+   spaces. This concerns argument passing. Suggest looking at strtok_r()
+   in 'lib/string.h'. */
+
 tid_t
 process_execute (const char *file_name) 
 {

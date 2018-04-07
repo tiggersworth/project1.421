@@ -48,6 +48,7 @@ process_execute (const char *file_name)
   char *save_ptr; //consistent with str_tok_r code implementation
   file_name = ((char *) file_name, " ", &save_ptr);
 
+
   //Question: Will there be a issue with fn_copy and file_name not being the same???
 
   /* Create a new thread to execute FILE_NAME. */
@@ -231,10 +232,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
-  process_activate ();
+  process_activate (); //Tyler: switch to process
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  // Tyler: Problem will occur if there are args because need 
+  // just command file_name (updated this, look through to make sure
+  // it's correct.
+  char * fn_copy;
+  cmd_name = malloc (strlen(file_name) + 1);
+  strlcpy(fn_copy, file_name, strlen(file_name) + 1);
+
+  char * save_ptr;
+  fn_copy = ((char *) file_name, " ", &save_ptr);
+
+  file = filesys_open (fn_copy);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -449,7 +460,9 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12; //changing this for right now so
+			       //arguments do not have to be   	
+			       //taken
       else
         palloc_free_page (kpage);
     }
